@@ -131,15 +131,10 @@ sudo bin/heat-db-setup deb -r "${DATABASE_PASSWORD}"
 sudo chown -R `whoami` /var/log/heat
 
 echo
-echo "Now starting heat in the background..."
-heat-api &> /dev/null &
-heat-engine &> /dev/null &
+echo "HEAT Setup Completed..."
 echo
-echo "heat-engine pid: $(pidof -x heat-engine)"
-echo "heat-api pid: $(pidof -x heat-api)"
-echo "heat logs: /var/log/heat"
-echo
-echo "To access heat, export HEAT_URL=http://${PUBLIC_IP}:8004/v1/\${OS_TENANT_ID}"
-echo " -- \${OS_TENANT_ID} should be replaced with your tenant ID."
-echo "Newer versions of heat client also require: export OS_NO_CLIENT_AUTH=1"
+echo "Start Heat API and ENGINE using following commands..."
+echo "sudo heat-api &"
+echo "sudo heat-engine &"
+echo "heat logs are available in: /var/log/heat"
 echo

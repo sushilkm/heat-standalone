@@ -35,3 +35,10 @@ $ ./install-heat
 
 Enter the requested parameters.
 
+
+After Installation finishes, start the api and engine services, using:
+
+sudo heat-api &
+
+sudo heat-engine &
+
