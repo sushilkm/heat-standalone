@@ -1,8 +1,10 @@
 heat-standalone
 ==========================
 
-Install script to get standalone heat server running against devstack and 
+Install script to get standalone heat server on ubuntu running against devstack and 
 some simple heat templates that will work with it.
+
+Tested with ubuntu 12.04
 
 Configuration
 --------------
@@ -17,3 +19,14 @@ configuration variables. It will be sourced by the install-heat shell script.
 
 If no localrc file exists, default values will be used. They are defined
 at the top of the install-heat script.
+
+Installation Steps
+----------------------------
+
+$ sudo apt-get update
+$ sudo apt-get install git-core -y
+$ git clone https://github.com/sushilkm/heat-standalone
+$ cd heat-standalone
+$ ./install-heat
+
+Enter the requested parameters.
