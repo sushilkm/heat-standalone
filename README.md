@@ -27,7 +27,7 @@ $ sudo apt-get update
 
 $ sudo apt-get install git-core -y
 
-$ git clone https://github.com/sushilkm/heat-standalone
+$ git clone https://github.com/sushilkm/heat-standalone.git
 
 $ cd heat-standalone
 
