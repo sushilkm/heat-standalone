@@ -1,0 +1,58 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "This template creates an instance.",
+
+  "Parameters" : {
+    "KeyName" : {
+      "Description" : "Name of an existing KeyPair to enable SSH access to the instance",
+      "Type" : "String"
+    },
+    "InstanceType" : {
+      "Description" : "Instance type",
+      "Type" : "String",
+      "Default" : "m1.small",
+      "AllowedValues" : [ "m1.tiny", "m1.small", "m1.medium", "m1.large", "m1.xlarge"],
+      "ConstraintDescription" : "must be a valid instance type."
+    },
+    "ImageId" : {
+        "Description" : "Image for instance to boot",
+        "Type" : "String"
+    }
+  },
+
+  "Resources" : {
+    "Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Properties" : {
+        "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+        "ImageId" : { "Ref" : "ImageId" },
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "KeyName" : { "Ref" : "KeyName" }
+      }
+    },
+    "InstanceSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable SSH access via port 22",
+        "SecurityGroupIngress" : [ {
+          "IpProtocol" : "tcp",
+          "FromPort" : "22",
+          "ToPort" : "22",
+          "CidrIp" : "0.0.0.0/0"
+        }]
+      }
+    }
+  },
+
+  "Outputs" : {
+    "InstanceId" : {
+      "Description" : "InstanceId of the newly created instance",
+      "Value" : { "Ref" : "Instance" }
+    },
+    "IP" : {
+      "Description" : "IP address of the newly created instance",
+      "Value" : { "Fn::GetAtt" : [ "Instance", "PublicIp" ] }
+    }
+  }
+}

@@ -1,0 +1,145 @@
+#!/bin/bash
+
+set -e
+
+DATABASE_PASSWORD="iampwd"
+RABBITMQ_PASSWORD="iampwd"
+
+if [ -e "localrc" ]
+then
+    echo " * Loading local configuration from 'localrc'..."
+    source localrc
+else
+    echo " * Enter Value for REGION... "
+    read -e REGION
+    echo " * Enter Value for AUTH_SERVER... "
+    read -e AUTH_SERVER
+    echo " * Enter Value for HEAT ADMIN PASSWORD... "
+    read -e HEAT_ADMIN_PASSWORD
+    echo REGION=$REGION > localrc
+    echo AUTH_SERVER=$AUTH_SERVER >> localrc
+    echo HEAT_ADMIN_PASSWORD=$HEAT_ADMIN_PASSWORD >> localrc
+fi
+
+echo " * Region will be set to '${REGION}'..."
+echo " * Auth URL will be set to '${AUTH_SERVER}'..."
+echo " * Heat Admin Password will be set to '${HEAT_ADMIN_PASSWORD}'..."
+
+sleep 3
+
+echo
+echo "=== Installing Heat ==="
+echo
+
+echo " * Fetching necessary information..."
+PUBLIC_IP="$(curl http://169.254.169.254/latest/meta-data/public-ipv4 2> /dev/null)"
+
+echo " * Preseeding mysql server configuration..."
+cat << MYSQL_PRESEED | sudo debconf-set-selections
+mysql-server mysql-server/root_password password ${DATABASE_PASSWORD}
+mysql-server mysql-server/root_password_again password ${DATABASE_PASSWORD}
+mysql-server mysql-server/start_on_boot boolean true
+MYSQL_PRESEED
+
+echo " * Installing packages including rabbitmq-server and mysql-server..."
+sudo apt-get --quiet update
+sudo apt-get --quiet --assume-yes install \
+ python-setuptools \
+ python-eventlet \
+ python-greenlet \
+ python-httplib2 \
+ python-iso8601 \
+ python-lxml \
+ python-sqlalchemy \
+ python-paste \
+ python-routes \
+ python-webob \
+ python-yaml \
+ python-mysqldb \
+ python-dev \
+ python-pip \
+ git-core \
+ python-setuptools \
+ gcc \
+ libc6-dev \
+ libxml2-dev \
+ libxslt-dev \
+ libz-dev \
+ python-prettytable \
+ mysql-server \
+ rabbitmq-server
+
+echo " * Updating rabbitmq password..."
+sudo rabbitmqctl change_password guest "${RABBITMQ_PASSWORD}"
+
+echo " * Downloading heat..."
+if [ -d heat/.git ] ; then
+  pushd heat
+  git stash
+  git pull
+  popd
+else
+  git clone --quiet git://github.com/openstack/heat.git
+fi
+cd heat
+echo " * Installing additional python dependencies..."
+#XXX: Work around 'TypeError: dist must be a Distribution instance'.
+sudo pip install --quiet requests==1.2.2
+sudo pip install --quiet -r requirements.txt
+echo " * Installing heat package in 'developer mode'..."
+sudo python setup.py develop --quiet
+sudo pip install --quiet python-heatclient
+
+echo " * Installing heat configuration files into '/etc/heat/'..."
+sudo cp -r etc/heat /etc/
+sudo chown -R `whoami` /etc/heat
+
+echo " * Updating heat configuration files..."
+cat > /etc/heat/heat.conf << EOF
+[DEFAULT]
+rabbit_password = ${RABBITMQ_PASSWORD}
+auth_encryption_key = $(hexdump -n 16 -v -e '/1 "%02x"' /dev/random)
+heat_metadata_server_url = http://${PUBLIC_IP}:8000
+heat_waitcondition_server_url = http://${PUBLIC_IP}:8000/v1/waitcondition
+heat_watch_server_url = http://${PUBLIC_IP}:8003
+region = ${REGION}
+sql_connection = mysql://heat:heat@localhost/heat
+verbose = True
+log_dir = /var/log/heat/
+
+[keystone_authtoken]
+signing_dir = /var/cache/heat
+admin_password = $HEAT_ADMIN_PASSWORD
+admin_user = heat
+admin_tenant_name = service
+auth_uri = http://${AUTH_SERVER}:5000/v2.0
+auth_protocol = http
+auth_port = 35357
+auth_host = $AUTH_SERVER
+
+EOF
+
+echo " * Creating log directory at '/var/log/heat/'..."
+sudo mkdir -p /var/log/heat/
+
+echo " * Creating signing directory at '/var/cache/heat/'..."
+sudo mkdir -p /var/cache/heat
+
+echo " * Setting up heat database..."
+sudo bin/heat-db-setup deb -r "${DATABASE_PASSWORD}"
+
+sudo chown -R `whoami` /var/log/heat
+
+echo
+echo "Now starting heat in the background..."
+heat-api &> /dev/null &
+heat-engine &> /dev/null &
+echo
+echo "heat-engine pid: $(pidof -x heat-engine)"
+echo "heat-api pid: $(pidof -x heat-api)"
+echo "heat logs: /var/log/heat"
+echo
+echo "To access heat, export HEAT_URL=http://${PUBLIC_IP}:8004/v1/\${OS_TENANT_ID}"
+echo " -- \${OS_TENANT_ID} should be replaced with your tenant ID."
+echo "Newer versions of heat client also require: export OS_NO_CLIENT_AUTH=1"
+echo
