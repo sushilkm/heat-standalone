@@ -82,15 +82,18 @@ else
   git clone --quiet git://github.com/openstack/heat.git
   git clone --quiet git://github.com/openstack/python-heatclient.git
 fi
-cd heat
+
+echo " * Installing heat-client..."
+cd python-heatclient
+sudo python setup.py install --quiet
+
 echo " * Installing additional python dependencies..."
 #XXX: Work around 'TypeError: dist must be a Distribution instance'.
+cd ../heat
 sudo pip install --quiet requests==1.2.2
 sudo pip install --quiet -r requirements.txt
 echo " * Installing heat package in 'developer mode'..."
 sudo python setup.py develop --quiet
-cd ../python-heatclient
-sudo python setup.py install --quiet
 
 echo " * Installing heat configuration files into '/etc/heat/'..."
 sudo cp -r etc/heat /etc/
